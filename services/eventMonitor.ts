@@ -5,7 +5,7 @@ type TransactionListener = (transaction: Transaction) => void;
 class EventMonitor {
   private listeners: TransactionListener[] = [];
   private isMonitoring = false;
-  private intervalId?: number;
+  private intervalId?: NodeJS.Timeout;
 
   subscribe(listener: TransactionListener): () => void {
     this.listeners.push(listener);
@@ -26,7 +26,7 @@ class EventMonitor {
     this.isMonitoring = true;
     
     // Simulate real-time events (in production, this would connect to WebSocket/SSE)
-    this.intervalId = window.setInterval(() => {
+    this.intervalId = setInterval(() => {
       if (Math.random() > 0.7) {
         const transaction = this.generateMockTransaction();
         this.notifyListeners(transaction);
@@ -56,7 +56,7 @@ class EventMonitor {
     const status = statuses[Math.floor(Math.random() * statuses.length)];
 
     return {
-      id: `txn_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type,
       platform,
       description: this.getDescription(type, platform),

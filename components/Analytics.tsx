@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from './ui/Card';
 import { ViewProps } from '../types';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const MaterialIcon = ({ name, className }: { name: string, className?: string }) => (
   <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -16,6 +16,8 @@ const engagementData = [
   { name: 'Jun', fb: 2390, ig: 3800, tt: 2500 },
 ];
 
+const ignore = [];
+
 const ageData = [
   { name: '18-24', value: 400 },
   { name: '25-34', value: 300 },
@@ -26,6 +28,8 @@ const ageData = [
 const COLORS = ['#3b82f6', '#14b8a6', '#a855f7', '#fb923c'];
 
 export const Analytics: React.FC<ViewProps> = () => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'wealth' | 'tokens' | 'whales'>('overview');
+
   const handleExport = () => {
     console.log("Downloading report as PDF...");
     alert("Downloading report as PDF... (Check console for details)");
@@ -34,7 +38,51 @@ export const Analytics: React.FC<ViewProps> = () => {
   return (
     <div className="p-7 space-y-7 animate-fade-in">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">Detailed Analytics</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold text-white">Detailed Analytics</h2>
+          <div className="flex gap-2 bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('wealth')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'wealth'
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Wealth Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab('tokens')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'tokens'
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Token Holders
+            </button>
+            <button
+              onClick={() => setActiveTab('whales')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'whales'
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Whales
+            </button>
+          </div>
+        </div>
         <div className="flex gap-4">
            <button 
              onClick={handleExport}
@@ -45,6 +93,15 @@ export const Analytics: React.FC<ViewProps> = () => {
            </button>
         </div>
       </div>
+
+      {activeTab === 'wealth' ? (
+        <AudienceWealthAnalytics />
+      ) : activeTab === 'tokens' ? (
+        <TokenHolderAnalysis />
+      ) : activeTab === 'whales' ? (
+        <WhaleIdentification />
+      ) : (
+        <>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2">
@@ -85,7 +142,7 @@ export const Analytics: React.FC<ViewProps> = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {ageData.map((entry, index) => (
+                  {ageData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -158,6 +215,8 @@ export const Analytics: React.FC<ViewProps> = () => {
            </div>
         </Card>
       </div>
+      </>
+      )}
     </div>
   );
 };
