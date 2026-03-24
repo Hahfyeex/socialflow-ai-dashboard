@@ -13,3 +13,12 @@ model User {
   refreshTokens String[]
   createdAt     DateTime @default(now())
 }
+
+model DynamicConfig {
+  key         String   @id
+  value       String
+  type        String   @default("string") // string, number, boolean, json
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
