@@ -133,6 +133,80 @@ export const generateCaption = async (topic: string, platform: string, tone: str
  * //  "I'll follow up with our shipping team."]
  * ```
  */
+/**
+ * Analyzes an image and generates social media captions using Gemini Vision
+ *
+ * @async
+ * @function analyzeImage
+ * @param {string} imageData - Base64-encoded image data or publicly accessible image URL
+ * @param {string} [mimeType='image/jpeg'] - MIME type of the image (e.g., 'image/png', 'image/webp')
+ * @param {string} [promptContext=''] - Optional context to guide caption generation
+ * @returns {Promise<string>} AI-generated caption based on the image content
+ * @throws {GeminiServiceError} When API key is invalid, input is missing, or generation fails
+ *
+ * @example
+ * ```typescript
+ * // From a file buffer (base64)
+ * const caption = await analyzeImage(base64String, 'image/png', 'product launch');
+ *
+ * // From a URL
+ * const caption = await analyzeImage('https://example.com/photo.jpg', 'image/jpeg');
+ * ```
+ */
+export const analyzeImage = async (
+  imageData: string,
+  mimeType: string = 'image/jpeg',
+  promptContext: string = ''
+): Promise<string> => {
+  if (!apiKey) {
+    throw new GeminiServiceError(
+      GeminiErrorCode.INVALID_API_KEY,
+      'API key is not configured. Please set API_KEY environment variable.'
+    );
+  }
+
+  if (!imageData) {
+    throw new GeminiServiceError(GeminiErrorCode.INVALID_INPUT, 'Image data is required.');
+  }
+
+  try {
+    const model = 'gemini-2.5-flash';
+    const contextInstruction = promptContext
+      ? ` Context: ${promptContext}.`
+      : '';
+
+    const isUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
+
+    const imagePart = isUrl
+      ? { fileData: { fileUri: imageData, mimeType } }
+      : { inlineData: { data: imageData, mimeType } };
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            imagePart,
+            {
+              text: `Analyze this image and generate an engaging social media caption with relevant hashtags.${contextInstruction} Focus on high-quality descriptors that capture the visual elements, mood, and key subjects.`,
+            },
+          ],
+        },
+      ],
+    });
+
+    return response.text || 'Could not generate caption from image.';
+  } catch (error) {
+    if (error instanceof GeminiServiceError) throw error;
+    throw new GeminiServiceError(
+      GeminiErrorCode.GENERATION_FAILED,
+      'Error analyzing image. Please check your API key and try again.',
+      error
+    );
+  }
+};
+
 export const generateReply = async (conversationHistory: string): Promise<string[]> => {
   try {
     if (!apiKey) {
