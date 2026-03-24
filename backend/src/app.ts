@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import healthRoutes from './routes/health';
 import statusRoutes from './routes/status';
 import videoRoutes from './routes/video';
+import predictiveRoutes from './routes/predictive';
 
 const app: Express = express();
 
@@ -18,5 +19,6 @@ app.use(morgan('dev'));
 app.use('/api/health', healthRoutes);
 app.use('/status', statusRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/predictive', predictiveRoutes);
 
 export default app;
