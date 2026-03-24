@@ -7,7 +7,9 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "cli": "node dist/cli/index.js",
-    "cli:dev": "ts-node-dev --respawn --transpile-only src/cli/index.ts"
+    "cli:dev": "ts-node-dev --respawn --transpile-only src/cli/index.ts",
+    "data-pruning:run": "node dist/scripts/data-pruning.js",
+    "data-pruning:dev": "ts-node-dev --respawn --transpile-only src/scripts/data-pruning.ts"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
