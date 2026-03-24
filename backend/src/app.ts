@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import healthRoutes from './routes/health';
 import statusRoutes from './routes/status';
+import videoRoutes from './routes/video';
 
 const app: Express = express();
 
@@ -16,5 +17,6 @@ app.use(morgan('dev'));
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/status', statusRoutes);
+app.use('/api/video', videoRoutes);
 
 export default app;

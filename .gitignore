@@ -51,3 +51,7 @@ task.md
 coverage
 .nyc_output
 *.lcov
+
+# Uploads
+uploads/
+backend/uploads/
