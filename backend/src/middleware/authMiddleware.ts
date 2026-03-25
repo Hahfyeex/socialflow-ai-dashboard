@@ -5,6 +5,7 @@ const JWT_SECRET = () => process.env.JWT_SECRET ?? 'change-me-in-production';
 
 export interface AuthRequest extends Request {
   userId?: string;
+  activeOrgId?: string;
 }
 
 export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
