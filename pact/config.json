@@ -1,0 +1,13 @@
+{
+  "consumer": {
+    "name": "socialflow-frontend"
+  },
+  "provider": {
+    "name": "socialflow-api"
+  },
+  "broker": {
+    "url": "http://localhost:9292",
+    "enablePending": false
+  },
+  "pactfileWriteMode": "overwrite"
+}

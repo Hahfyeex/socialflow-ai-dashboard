@@ -8,7 +8,13 @@
     "build": "tsc && npx vite build",
     "preview": "npx vite preview",
     "electron:dev": "concurrently \"npm run dev\" \"npx wait-on tcp:5173 && npx electron .\"",
-    "electron:build": "npx vite build && electron-builder"
+    "electron:build": "npx vite build && electron-builder",
+    "mock:server": "npx tsx pact/mock-server.ts",
+    "pact:consumer": "npx vitest run pact/consumer.test.ts",
+    "pact:provider": "npx vitest run pact/provider.test.ts",
+    "pact:verify": "npx tsx pact/verify-contracts.ts",
+    "pact:broker:start": "docker-compose -f docker-compose.pact.yml up -d",
+    "pact:broker:stop": "docker-compose -f docker-compose.pact.yml down"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +28,7 @@
     "recharts": "^2.10.0"
   },
   "devDependencies": {
+    "@pact-foundation/pact": "^12.5.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
@@ -31,8 +38,10 @@
     "electron-builder": "^24.9.1",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
+    "vitest": "^1.2.0",
     "wait-on": "^7.2.0"
   },
   "build": {

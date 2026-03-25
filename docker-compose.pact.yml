@@ -1,0 +1,43 @@
+# Pact Broker Docker Compose Configuration
+# 
+# This sets up a local Pact Broker for contract testing.
+# Run with: docker-compose -f docker-compose.pact.yml up -d
+# 
+# Broker UI: http://localhost:9292
+# API: http://localhost:9292
+
+version: '3'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pact_broker
+    volumes:
+      - pact_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  broker:
+    image: pactfoundation/pact-broker:2.109.0
+    ports:
+      - "9292:9292"
+    environment:
+      PACT_BROKER_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pact_broker
+      PACT_BROKER_DATABASE_USERNAME: postgres
+      PACT_BROKER_DATABASE_PASSWORD: postgres
+      PACT_BROKER_LOG_LEVEL: INFO
+      # Enable simple authentication (optional)
+      # PACT_BROKER_BASIC_AUTH_USERNAME: admin
+      # PACT_BROKER_BASIC_AUTH_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pact_db_data:

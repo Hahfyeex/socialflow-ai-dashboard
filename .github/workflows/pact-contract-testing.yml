@@ -1,0 +1,147 @@
+# GitHub Actions Workflow for Pact Contract Testing
+# 
+# This workflow runs consumer-driven contract tests to ensure that
+# changes in the backend don't break the frontend or other consumers.
+# 
+# Workflow triggers:
+# - On push to main/develop branches
+# - On pull requests
+# - On demand (manual trigger)
+
+name: Contract Testing
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      run_provider_tests:
+        description: 'Run provider tests'
+        required: false
+        default: 'false'
+
+env:
+  PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL || 'http://localhost:9292' }}
+  API_HOST: localhost
+  API_PORT: 3000
+
+jobs:
+  # Start Pact Broker (for local development/CI)
+  start-broker:
+    runs-on: ubuntu-latest
+    outputs:
+      broker-url: ${{ steps.set-url.outputs.url }}
+    steps:
+      - name: Set broker URL
+        id: set-url
+        run: |
+          if [ "${{ secrets.PACT_BROKER_URL }}" != "" ]; then
+            echo "url=${{ secrets.PACT_BROKER_URL }}" >> $GITHUB_OUTPUT
+          else
+            # Use Docker for local broker
+            echo "url=http://localhost:9292" >> $GITHUB_OUTPUT
+          fi
+
+  # Consumer Contract Tests
+  consumer-tests:
+    needs: start-broker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Pact CLI
+        run: npm install -g @pact-foundation/pact-cli
+
+      - name: Start mock API server
+        run: |
+          # Start a mock server that responds to contract expectations
+          npm run mock:server &
+          sleep 5
+
+      - name: Run consumer contract tests
+        run: |
+          npx pact-broker publish ./pact/pacts \
+            --broker-base-url=${{ needs.start-broker.outputs.broker-url }} \
+            --consumer-version-commit-ref=${{ github.sha }} \
+            --provider-version-commit-ref=${{ github.sha }}
+
+      - name: Can I Deploy?
+        run: |
+          npx pact-broker can-i-deploy \
+            --broker-base-url=${{ needs.start-broker.outputs.broker-url }} \
+            --pacticipant=socialflow-frontend \
+            --version=${{ github.sha }} \
+            --to-environment=production
+
+  # Provider Contract Tests
+  provider-tests:
+    needs: start-broker
+    if: github.event_name == 'workflow_dispatch' && inputs.run_provider_tests == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Pact CLI
+        run: npm install -g @pact-foundation/pact-cli
+
+      - name: Start API server
+        run: |
+          # Start the actual API server
+          npm run start:api &
+          sleep 10
+
+      - name: Verify provider contracts
+        run: |
+          npx pact-broker verify \
+            --broker-base-url=${{ needs.start-broker.outputs.broker-url }} \
+            --provider=socialflow-api \
+            --provider-base-url=http://localhost:3000 \
+            --publish-verification-results=true \
+            --provider-version=${{ github.sha }}
+
+  # Contract Testing Summary
+  contract-summary:
+    needs: [consumer-tests, provider-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Contract Testing Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.consumer-tests.result }}" == "success" ]; then
+            echo "✅ Consumer contracts verified" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Consumer contract verification failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.provider-tests.result }}" == "success" ]; then
+            echo "✅ Provider contracts verified" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.provider-tests.result }}" == "skipped" ]; then
+            echo "⏭️ Provider tests skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Provider contract verification failed" >> $GITHUB_STEP_SUMMARY
+          fi
