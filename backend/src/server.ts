@@ -4,12 +4,15 @@ import { startDataPruningJob, stopDataPruningJob } from './jobs/dataPruningJob';
 import { startWorkerMonitor, stopWorkerMonitor } from './monitoring/workerMonitorInstance';
 import { createLogger } from './lib/logger';
 import { prisma } from './lib/prisma';
+import { startWebhookWorker } from './queues/WebhookQueue';
+import { Worker } from 'bullmq';
 import { Server } from 'http';
 
 const logger = createLogger('server');
 const PORT = getBackendPort();
 
 let serverInstance: Server | null = null;
+let webhookWorker: Worker | null = null;
 let isShuttingDown = false;
 
 /**
@@ -54,6 +57,16 @@ const gracefulShutdown = async (signal: string, exitCode: number = 0): Promise<v
       logger.info('Worker monitor stopped');
     } catch (error) {
       logger.error('Failed to stop worker monitor', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Stop webhook delivery worker
+    try {
+      if (webhookWorker) await webhookWorker.close();
+      logger.info('Webhook worker stopped');
+    } catch (error) {
+      logger.error('Failed to stop webhook worker', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -156,6 +169,15 @@ const bootstrap = async (): Promise<void> => {
       logger.info('Data pruning job started');
     } catch (error) {
       logger.error('Failed to start data pruning job', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Start webhook delivery worker
+    try {
+      webhookWorker = startWebhookWorker();
+    } catch (error) {
+      logger.error('Failed to start webhook worker', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
