@@ -11,12 +11,15 @@ model User {
   email         String               @unique
   passwordHash  String
   refreshTokens String[]
-  role          String    @default("user") // "user" or "mentor"
-  listings      Listing[] @relation("MentorListings")
-  createdAt     DateTime  @default(now())
-  deletedAt     DateTime?
+  role          String               @default("user")
+  listings      Listing[]            @relation("MentorListings")
   createdAt     DateTime             @default(now())
+  deletedAt     DateTime?
   memberships   OrganizationMember[]
+
+  @@index([email])
+  @@index([createdAt])
+  @@index([deletedAt])
 }
 
 model Organization {
@@ -27,18 +30,24 @@ model Organization {
   members   OrganizationMember[]
   posts     Post[]
   analytics AnalyticsEntry[]
+
+  @@index([slug])
+  @@index([createdAt])
 }
 
 model OrganizationMember {
   id             String       @id @default(uuid())
   organizationId String
   userId         String
-  role           String       @default("member") // owner | admin | member
+  role           String       @default("member")
   joinedAt       DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([joinedAt])
 }
 
 model Post {
@@ -49,6 +58,11 @@ model Post {
   scheduledAt    DateTime?
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([platform])
+  @@index([createdAt])
+  @@index([scheduledAt])
 }
 
 model AnalyticsEntry {
@@ -59,6 +73,11 @@ model AnalyticsEntry {
   value          Float
   recordedAt     DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([platform])
+  @@index([metric])
+  @@index([recordedAt])
 }
 
 model DynamicConfig {
@@ -74,10 +93,15 @@ model Listing {
   title       String
   description String
   price       Float?
-  isActive    Boolean   @default(true) // Toggle for visibility
+  isActive    Boolean   @default(true)
   mentorId    String
   mentor      User      @relation("MentorListings", fields: [mentorId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+
+  @@index([mentorId])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([deletedAt])
 }
