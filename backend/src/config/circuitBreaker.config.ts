@@ -97,6 +97,17 @@ export const CIRCUIT_CONFIGS = {
     volumeThreshold: 5,
     name: 'price-service',
   } as CircuitBreakerConfig,
+
+  // YouTube Data API v3
+  youtube: {
+    timeout: 15000,              // 15 seconds
+    errorThresholdPercentage: 50,
+    resetTimeout: 60000,         // 1 minute cooldown
+    rollingCountTimeout: 20000,
+    rollingCountBuckets: 10,
+    volumeThreshold: 3,
+    name: 'youtube-service',
+  } as CircuitBreakerConfig,
 };
 
 /**

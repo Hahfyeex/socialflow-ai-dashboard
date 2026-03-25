@@ -1,18 +1,21 @@
 import { Router, Request, Response } from 'express';
 import { analyzeImage, GeminiServiceError } from '../../../services/geminiService';
+import { authMiddleware } from '../middleware/authMiddleware';
+import { requireCredits } from '../middleware/requireCredits';
 
 const router = Router();
 
 /**
  * POST /ai/analyze-image
  * Accepts an image (base64 buffer or URL) and returns an AI-generated social media caption.
+ * Requires authentication and deducts 'ai:generate' credits.
  *
  * Body:
  *   imageData   {string}  Base64-encoded image data or a public image URL (required)
  *   mimeType    {string}  MIME type, e.g. "image/jpeg" (optional, default: "image/jpeg")
  *   context     {string}  Optional prompt context to guide caption style/topic
  */
-router.post('/analyze-image', async (req: Request, res: Response) => {
+router.post('/analyze-image', authMiddleware, requireCredits('ai:generate'), async (req: Request, res: Response) => {
   const { imageData, mimeType, context } = req.body;
 
   if (!imageData) {

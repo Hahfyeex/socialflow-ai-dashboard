@@ -2,6 +2,8 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import healthRoutes from './routes/health';
+import jobsRoutes from './routes/jobs';
 import { requestIdMiddleware } from './middleware/requestId';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import webhookRoutes from './routes/webhooks';
@@ -25,14 +27,17 @@ app.use(express.urlencoded({ extended: true }));
 // Logging middleware (after request ID so logs include the ID)
 app.use(morgan('combined'));
 
+// Routes
+app.use('/api/health', healthRoutes);
+app.use('/api', jobsRoutes);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes
-app.use('/api/webhooks', webhookRoutes);
-app.use('/api/realtime', realtimeRoutes);
+import youtubeRoutes from './routes/youtube';
+app.use('/api/youtube', youtubeRoutes);
 
 // 404 handler - must be after all routes
 app.use(notFoundHandler);

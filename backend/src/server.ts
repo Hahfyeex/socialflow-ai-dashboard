@@ -1,6 +1,10 @@
 import app from './app';
+import { SocketService } from './services/SocketService';
+import { initializeWorkers } from './jobs/workers';
+import { queueManager } from './queues/queueManager';
 import { getBackendPort } from './config/runtime';
 import { startDataPruningJob, stopDataPruningJob } from './jobs/dataPruningJob';
+import { startYouTubeSyncJob, stopYouTubeSyncJob } from './jobs/youtubeSyncJob';
 import { startWorkerMonitor, stopWorkerMonitor } from './monitoring/workerMonitorInstance';
 import { createLogger } from './lib/logger';
 import { prisma } from './lib/prisma';
@@ -81,6 +85,26 @@ const gracefulShutdown = async (signal: string, exitCode: number = 0): Promise<v
       });
     }
 
+    // Stop YouTube sync job
+    try {
+      await stopYouTubeSyncJob();
+      logger.info('YouTube sync job stopped');
+    } catch (error) {
+      logger.error('Failed to stop YouTube sync job', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Close job queues and workers
+    try {
+      await queueManager.closeAll();
+      logger.info('All queues and workers closed successfully');
+    } catch (error) {
+      logger.error('Failed to close queues', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     // Close database connections
     try {
       await prisma.$disconnect();
@@ -153,6 +177,10 @@ process.on('SIGTERM', () => {
  */
 const bootstrap = async (): Promise<void> => {
   try {
+    // Initialize job queue workers
+    logger.info('Initializing job queue workers...');
+    initializeWorkers();
+
     // Start worker monitor
     try {
       await startWorkerMonitor();
@@ -173,11 +201,12 @@ const bootstrap = async (): Promise<void> => {
       });
     }
 
-    // Start webhook delivery worker
+    // Start YouTube analytics sync job
     try {
-      webhookWorker = startWebhookWorker();
+      await startYouTubeSyncJob();
+      logger.info('YouTube analytics sync job started');
     } catch (error) {
-      logger.error('Failed to start webhook worker', {
+      logger.error('Failed to start YouTube sync job', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -185,7 +214,11 @@ const bootstrap = async (): Promise<void> => {
     // Start HTTP server
     serverInstance = app.listen(PORT, () => {
       logger.info(`🚀 SocialFlow Backend is running on http://localhost:${PORT}`);
+      logger.info('📬 Job Queue System initialized');
     });
+
+    // Initialize Socket.io
+    SocketService.initialize(serverInstance);
 
     // Handle server errors
     serverInstance.on('error', (error: Error) => {

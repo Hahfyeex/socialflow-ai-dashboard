@@ -7,11 +7,13 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
+  id            String    @id @default(uuid())
+  email         String    @unique
   passwordHash  String
   refreshTokens String[]
-  createdAt     DateTime @default(now())
+  role          String    @default("user") // "user" or "mentor"
+  listings      Listing[] @relation("MentorListings")
+  createdAt     DateTime  @default(now())
 }
 
 model DynamicConfig {
@@ -22,38 +24,14 @@ model DynamicConfig {
   updatedAt   DateTime @updatedAt
 }
 
-model WebhookSubscription {
-  id        String   @id @default(uuid())
-  userId    String
-  url       String
-  secret    String   // HMAC-SHA256 signing secret (stored hashed)
-  events    String[] // e.g. ["post.published", "post.failed"]
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  deliveries WebhookDelivery[]
-
-  @@index([userId])
+model Listing {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  price       Float?
+  isActive    Boolean  @default(true) // Toggle for visibility
+  mentorId    String
+  mentor      User     @relation("MentorListings", fields: [mentorId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
-
-model WebhookDelivery {
-  id             String   @id @default(uuid())
-  subscriptionId String
-  eventType      String
-  payload        String   // JSON string of the event envelope
-  status         String   @default("pending") // pending | success | failed
-  attempts       Int      @default(0)
-  nextRetryAt    DateTime?
-  responseStatus Int?
-  responseBody   String?
-  errorMessage   String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-
-  @@index([subscriptionId])
-  @@index([status, nextRetryAt])
-}
-

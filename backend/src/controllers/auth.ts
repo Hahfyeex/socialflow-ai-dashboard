@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { UserStore } from '../models/User';
+import { auditLogger } from '../services/AuditLogger';
 
 const SALT_ROUNDS = 12;
 
@@ -42,6 +43,7 @@ export async function register(req: Request, res: Response): Promise<void> {
   const refreshToken = signRefresh(user.id);
   UserStore.update(user.id, { refreshTokens: [refreshToken] });
 
+  auditLogger.log({ actorId: user.id, action: 'auth:register', ip: req.ip, userAgent: req.headers['user-agent'] });
   res.status(201).json({ accessToken, refreshToken });
 }
 
@@ -58,6 +60,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   const refreshToken = signRefresh(user.id);
   UserStore.update(user.id, { refreshTokens: [...user.refreshTokens, refreshToken] });
 
+  auditLogger.log({ actorId: user.id, action: 'auth:login', ip: req.ip, userAgent: req.headers['user-agent'] });
   res.json({ accessToken, refreshToken });
 }
 
@@ -103,6 +106,7 @@ export function logout(req: Request, res: Response): void {
     UserStore.update(user.id, {
       refreshTokens: user.refreshTokens.filter((t) => t !== refreshToken),
     });
+    auditLogger.log({ actorId: user.id, action: 'auth:logout', ip: req.ip, userAgent: req.headers['user-agent'] });
   }
 
   res.status(204).send();

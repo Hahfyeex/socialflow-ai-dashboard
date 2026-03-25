@@ -52,6 +52,10 @@ coverage
 .nyc_output
 *.lcov
 
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
 # Uploads
 uploads/
 backend/uploads/
