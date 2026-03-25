@@ -5,13 +5,14 @@ import morgan from 'morgan';
 import { requestIdMiddleware } from './middleware/requestId';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import webhookRoutes from './routes/webhooks';
+import realtimeRoutes from './routes/realtime';
 
 const app: Application = express();
 
 // Security middleware
 app.use(helmet());
 
-// CORS
+// CORS — allow EventSource connections
 app.use(cors());
 
 // Request ID middleware (must be first to ensure all logs have request ID)
@@ -31,6 +32,7 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/realtime', realtimeRoutes);
 
 // 404 handler - must be after all routes
 app.use(notFoundHandler);

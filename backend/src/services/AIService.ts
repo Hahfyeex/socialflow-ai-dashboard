@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/genai';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { circuitBreakerService } from './CircuitBreakerService';
+import { eventBus } from '../lib/eventBus';
 
 const tracer = trace.getTracer('socialflow-ai');
 
@@ -42,16 +43,19 @@ class AIService {
   }
 
   /**
-   * Generate content with circuit breaker protection and distributed tracing
+   * Generate content with circuit breaker protection and distributed tracing.
+   * Pass userId to stream progress via SSE.
    */
   public async generateContent(
     prompt: string,
-    fallbackResponse?: string
+    fallbackResponse?: string,
+    userId?: string
   ): Promise<string> {
     if (!this.model) {
       throw new Error('Gemini AI not initialized. Please configure API_KEY.');
     }
 
+    const jobId = `ai-${Date.now()}`;
     const span = tracer.startSpan('ai.generateContent', {
       attributes: {
         'ai.provider': 'gemini',
@@ -59,6 +63,10 @@ class AIService {
         'ai.prompt_length': prompt.length,
       },
     });
+
+    if (userId) {
+      eventBus.emitJobProgress({ jobId, userId, type: 'ai_generation', status: 'processing', progress: 0, message: 'Generating content…' });
+    }
 
     try {
       const result = await circuitBreakerService.execute(
@@ -68,9 +76,7 @@ class AIService {
           const response = await res.response;
           const text = response.text();
 
-          if (!text) {
-            throw new Error('Empty response from Gemini AI');
-          }
+          if (!text) throw new Error('Empty response from Gemini AI');
 
           span.setAttribute('ai.response_length', text.length);
           return text;
@@ -85,13 +91,16 @@ class AIService {
         }
       );
 
+      if (userId) {
+        eventBus.emitJobProgress({ jobId, userId, type: 'ai_generation', status: 'completed', progress: 100, message: 'Done' });
+      }
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (err) {
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: err instanceof Error ? err.message : String(err),
-      });
+      if (userId) {
+        eventBus.emitJobProgress({ jobId, userId, type: 'ai_generation', status: 'failed', progress: 0, error: err instanceof Error ? err.message : String(err) });
+      }
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
       span.recordException(err as Error);
       throw err;
     } finally {

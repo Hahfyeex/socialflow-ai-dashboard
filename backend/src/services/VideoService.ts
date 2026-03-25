@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import { TranscodingJob, VideoQuality, VideoFormat, TranscodedOutput, TranscodingOptions } from '../types/video';
 import { v4 as uuidv4 } from 'uuid';
 import { createLogger } from '../lib/logger';
+import { eventBus } from '../lib/eventBus';
 
 const logger = createLogger('VideoService');
 
@@ -29,7 +30,8 @@ class VideoService {
    */
   public async createTranscodingJob(
     inputPath: string,
-    options: TranscodingOptions = {}
+    options: TranscodingOptions = {},
+    userId?: string
   ): Promise<string> {
     const jobId = uuidv4();
     const outputDir = options.outputDir || path.join(path.dirname(inputPath), 'transcoded', jobId);
@@ -53,9 +55,9 @@ class VideoService {
     this.jobs.set(jobId, job);
 
     // Start processing in background
-    this.processJob(jobId).catch((error) => {
+    this.processJob(jobId, userId).catch((error) => {
       console.error(`Job ${jobId} failed:`, error);
-      this.updateJobStatus(jobId, 'failed', error.message);
+      this.updateJobStatus(jobId, 'failed', error.message, userId);
     });
 
     return jobId;
@@ -78,44 +80,37 @@ class VideoService {
   /**
    * Process a transcoding job
    */
-  private async processJob(jobId: string): Promise<void> {
+  private async processJob(jobId: string, userId?: string): Promise<void> {
     const job = this.jobs.get(jobId);
-    if (!job) {
-      throw new Error(`Job ${jobId} not found`);
-    }
+    if (!job) throw new Error(`Job ${jobId} not found`);
 
-    this.updateJobStatus(jobId, 'processing');
+    this.updateJobStatus(jobId, 'processing', undefined, userId);
 
     const totalTasks = job.qualities.length * job.formats.length;
     let completedTasks = 0;
-
     const outputs: TranscodedOutput[] = [];
 
-    // Process each quality and format combination
     for (const quality of job.qualities) {
       for (const format of job.formats) {
         try {
           const output = await this.transcodeVideo(job, quality, format);
           outputs.push(output);
-
           completedTasks++;
           const progress = Math.round((completedTasks / totalTasks) * 100);
-          this.updateJobProgress(jobId, progress);
+          this.updateJobProgress(jobId, progress, userId);
         } catch (error) {
           console.error(`Failed to transcode ${quality.name} ${format.extension}:`, error);
-          // Continue with other formats even if one fails
         }
       }
     }
 
-    // Update job with outputs
     job.outputs = outputs;
     job.updatedAt = new Date();
 
     if (outputs.length === 0) {
-      this.updateJobStatus(jobId, 'failed', 'All transcoding attempts failed');
+      this.updateJobStatus(jobId, 'failed', 'All transcoding attempts failed', userId);
     } else {
-      this.updateJobStatus(jobId, 'completed');
+      this.updateJobStatus(jobId, 'completed', undefined, userId);
     }
   }
 
@@ -172,13 +167,22 @@ class VideoService {
   /**
    * Update job status
    */
-  private updateJobStatus(jobId: string, status: TranscodingJob['status'], error?: string): void {
+  private updateJobStatus(jobId: string, status: TranscodingJob['status'], error?: string, userId?: string): void {
     const job = this.jobs.get(jobId);
     if (job) {
       job.status = status;
       job.updatedAt = new Date();
-      if (error) {
-        job.error = error;
+      if (error) job.error = error;
+      if (userId) {
+        eventBus.emitJobProgress({
+          jobId,
+          userId,
+          type: 'video_transcoding',
+          status,
+          progress: status === 'completed' ? 100 : job.progress,
+          message: status === 'failed' ? error : `Job ${status}`,
+          error,
+        });
       }
     }
   }
@@ -186,11 +190,21 @@ class VideoService {
   /**
    * Update job progress
    */
-  private updateJobProgress(jobId: string, progress: number): void {
+  private updateJobProgress(jobId: string, progress: number, userId?: string): void {
     const job = this.jobs.get(jobId);
     if (job) {
       job.progress = progress;
       job.updatedAt = new Date();
+      if (userId) {
+        eventBus.emitJobProgress({
+          jobId,
+          userId,
+          type: 'video_transcoding',
+          status: 'processing',
+          progress,
+          message: `Transcoding ${progress}%`,
+        });
+      }
     }
   }
 
